@@ -1,0 +1,472 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name='agrover_trx4'>
+
+    <!--
+      Agrover TRX-4 rover model for PX4 SITL (Gazebo Harmonic).
+
+      Geometry: primitives only (box body, cylinder wheels). No mesh files.
+      Real TRX-4 dimensions: wheelbase 0.312 m, track 0.266 m.
+      Mass: ~3.95 kg total. Auto-inertia via Gazebo Harmonic density system.
+      Ride height: base_link at z=0.06 (wheel radius); body box offset 0.09 m
+                   above link origin so bottom sits at 90 mm ground clearance.
+
+      Steering: gz-sim-ackermann-steering-system (steering_only mode, servo_0).
+      Drive:    4WD — JointController on command/motor_speed for all four wheels.
+
+      PX4 / GZBridge contract (keep verbatim):
+        - link name:    base_link
+        - sensors:      imu_sensor, magnetometer_sensor, air_pressure_sensor, navsat_sensor
+        - drive topic:  command/motor_speed, actuator 0, velocity control
+        - steer topic:  servo_0, steering limit +-0.5236 rad
+        - JointStatePublisher present
+    -->
+
+    <!-- ================================================================ -->
+    <!-- Links                                                             -->
+    <!-- ================================================================ -->
+
+    <link name='base_link'>
+      <!-- z=0.06 places base_link at wheel-centre height so wheels touch ground -->
+      <pose relative_to='__model__'>0 0 0.06 0 0 0</pose>
+      <inertial auto="true"/>
+      <visual name='visual'>
+        <!-- offset 0.09 m up so box bottom is at 90 mm above ground -->
+        <pose>0 0 0.09 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.45 0.18 0.12</size>
+          </box>
+        </geometry>
+      </visual>
+      <collision name='collision'>
+        <pose>0 0 0.09 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.45 0.18 0.12</size>
+          </box>
+        </geometry>
+        <!-- density: 3.35 kg / (0.45*0.18*0.12 m^3) = 344.65 -> 345 kg/m^3 -->
+        <density>345</density>
+      </collision>
+
+      <!-- ============================================================== -->
+      <!-- Sensors — verbatim from rover_ackermann; names must not change  -->
+      <!-- ============================================================== -->
+
+      <sensor name="air_pressure_sensor" type="air_pressure">
+        <always_on>1</always_on>
+        <update_rate>50</update_rate>
+        <air_pressure>
+          <!-- Noise modeled after BMP390 -->
+          <pressure>
+            <noise type="gaussian">
+              <mean>0</mean>
+              <stddev>3</stddev>
+            </noise>
+          </pressure>
+        </air_pressure>
+      </sensor>
+
+      <sensor name="magnetometer_sensor" type="magnetometer">
+        <always_on>1</always_on>
+        <update_rate>100</update_rate>
+        <magnetometer>
+          <!-- TODO: update to fix units and coordinate system when we move past Harmonic -->
+          <!-- See https://github.com/gazebosim/gz-sim/pull/2460 -->
+          <!-- 3mgauss RMS: NOTE: noise is in tesla but sensor reports data in gauss -->
+          <!-- Noise modeled after IIS2MDC -->
+          <x>
+            <noise type="gaussian">
+              <stddev>0.0001</stddev>
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <stddev>0.0001</stddev>
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <stddev>0.0001</stddev>
+            </noise>
+          </z>
+        </magnetometer>
+      </sensor>
+
+      <sensor name="imu_sensor" type="imu">
+        <always_on>1</always_on>
+        <update_rate>250</update_rate>
+        <imu>
+          <angular_velocity>
+            <!-- Noise modeled after IIM42653 -->
+            <!-- 0.05 deg/s converted to rad/s -->
+            <x>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.0008726646</stddev>
+              </noise>
+            </x>
+            <y>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.0008726646</stddev>
+              </noise>
+            </y>
+            <z>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.0008726646</stddev>
+              </noise>
+            </z>
+          </angular_velocity>
+          <linear_acceleration>
+            <!-- Noise modeled after IIM42653 -->
+            <!-- X & Y axis: 0.65 mg-rms converted to m/ss -->
+            <x>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.00637</stddev>
+              </noise>
+            </x>
+            <y>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.00637</stddev>
+              </noise>
+            </y>
+            <!-- Z axis: 0.70 mg-rms converted to m/ss-->
+            <z>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.00686</stddev>
+              </noise>
+            </z>
+          </linear_acceleration>
+        </imu>
+      </sensor>
+
+      <sensor name="navsat_sensor" type="navsat">
+        <always_on>1</always_on>
+        <update_rate>30</update_rate>
+      </sensor>
+    </link>
+
+    <!-- ============================================================== -->
+    <!-- Rear wheels — real physics, high-grip drive wheels             -->
+    <!-- ============================================================== -->
+
+    <link name='wheel_rear_left_link'>
+      <!-- pose: x=-0.156 (rear axle), y=+0.133 (left), z=0 (wheel centre = base_link z) -->
+      <pose relative_to="base_link">-0.156 0.133 0 -1.5707 0 0</pose>
+      <inertial auto="true"/>
+      <visual name='visual'>
+        <geometry>
+          <cylinder>
+            <radius>0.06</radius>
+            <length>0.08</length>
+          </cylinder>
+        </geometry>
+      </visual>
+      <collision name='collision'>
+        <geometry>
+          <cylinder>
+            <radius>0.06</radius>
+            <length>0.08</length>
+          </cylinder>
+        </geometry>
+        <!-- density: 0.15 kg / (pi*0.06^2*0.08) = 165.79 -> 166 kg/m^3 -->
+        <density>166</density>
+        <surface>
+          <friction>
+            <ode>
+              <mu>2.0</mu>
+              <mu2>2.0</mu2>
+              <fdir1>0 0 1</fdir1>
+            </ode>
+          </friction>
+        </surface>
+      </collision>
+    </link>
+
+    <link name='wheel_rear_right_link'>
+      <!-- pose: x=-0.156 (rear axle), y=-0.133 (right), z=0 -->
+      <pose relative_to="base_link">-0.156 -0.133 0 -1.5707 0 0</pose>
+      <inertial auto="true"/>
+      <visual name='visual'>
+        <geometry>
+          <cylinder>
+            <radius>0.06</radius>
+            <length>0.08</length>
+          </cylinder>
+        </geometry>
+      </visual>
+      <collision name='collision'>
+        <geometry>
+          <cylinder>
+            <radius>0.06</radius>
+            <length>0.08</length>
+          </cylinder>
+        </geometry>
+        <!-- density: 0.15 kg / (pi*0.06^2*0.08) = 165.79 -> 166 kg/m^3 -->
+        <density>166</density>
+        <surface>
+          <friction>
+            <ode>
+              <mu>2.0</mu>
+              <mu2>2.0</mu2>
+              <fdir1>0 0 1</fdir1>
+            </ode>
+          </friction>
+        </surface>
+      </collision>
+    </link>
+
+    <!-- ============================================================== -->
+    <!-- Front steering intermediate links (carry the steering angle)   -->
+    <!-- ============================================================== -->
+
+    <link name="wheel_front_left_steering_link">
+      <pose relative_to="wheel_front_left_link">0 0 0 0 0 0</pose>
+      <inertial>
+        <mass>0.005</mass>
+        <inertia>
+          <ixx>0.0000018</ixx>
+          <iyy>0.0000018</iyy>
+          <izz>0.0000018</izz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <link name="wheel_front_right_steering_link">
+      <pose relative_to="wheel_front_right_link">0 0 0 0 0 0</pose>
+      <inertial>
+        <mass>0.005</mass>
+        <inertia>
+          <ixx>0.0000018</ixx>
+          <iyy>0.0000018</iyy>
+          <izz>0.0000018</izz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <!-- ============================================================== -->
+    <!-- Front wheels — real physics, moderate-grip steered wheels      -->
+    <!-- ============================================================== -->
+
+    <link name='wheel_front_left_link'>
+      <!-- pose: x=+0.156 (front axle), y=+0.133 (left), z=0 -->
+      <pose relative_to="base_link">0.156 0.133 0 -1.5707 0 0</pose>
+      <inertial auto="true"/>
+      <visual name='visual'>
+        <geometry>
+          <cylinder>
+            <radius>0.06</radius>
+            <length>0.08</length>
+          </cylinder>
+        </geometry>
+      </visual>
+      <collision name='collision'>
+        <geometry>
+          <cylinder>
+            <radius>0.06</radius>
+            <length>0.08</length>
+          </cylinder>
+        </geometry>
+        <!-- density: 0.15 kg / (pi*0.06^2*0.08) = 165.79 -> 166 kg/m^3 -->
+        <density>166</density>
+        <surface>
+          <friction>
+            <ode>
+              <!-- Moderate friction to reduce lateral scrub during steering -->
+              <mu>0.5</mu>
+              <mu2>1.0</mu2>
+              <fdir1>0 0 1</fdir1>
+            </ode>
+          </friction>
+        </surface>
+      </collision>
+    </link>
+
+    <link name='wheel_front_right_link'>
+      <!-- pose: x=+0.156 (front axle), y=-0.133 (right), z=0 -->
+      <pose relative_to="base_link">0.156 -0.133 0 -1.5707 0 0</pose>
+      <inertial auto="true"/>
+      <visual name='visual'>
+        <geometry>
+          <cylinder>
+            <radius>0.06</radius>
+            <length>0.08</length>
+          </cylinder>
+        </geometry>
+      </visual>
+      <collision name='collision'>
+        <geometry>
+          <cylinder>
+            <radius>0.06</radius>
+            <length>0.08</length>
+          </cylinder>
+        </geometry>
+        <!-- density: 0.15 kg / (pi*0.06^2*0.08) = 165.79 -> 166 kg/m^3 -->
+        <density>166</density>
+        <surface>
+          <friction>
+            <ode>
+              <!-- Moderate friction to reduce lateral scrub during steering -->
+              <mu>0.5</mu>
+              <mu2>1.0</mu2>
+              <fdir1>0 0 1</fdir1>
+            </ode>
+          </friction>
+        </surface>
+      </collision>
+    </link>
+
+    <!-- ================================================================ -->
+    <!-- Joints                                                            -->
+    <!-- ================================================================ -->
+
+    <joint name='wheel_rear_left_joint' type='revolute'>
+      <pose relative_to='wheel_rear_left_link'/>
+      <parent>base_link</parent>
+      <child>wheel_rear_left_link</child>
+      <axis>
+        <xyz expressed_in='__model__'>0 1 0</xyz>
+      </axis>
+    </joint>
+
+    <joint name='wheel_rear_right_joint' type='revolute'>
+      <pose relative_to='wheel_rear_right_link'/>
+      <parent>base_link</parent>
+      <child>wheel_rear_right_link</child>
+      <axis>
+        <xyz expressed_in='__model__'>0 1 0</xyz>
+      </axis>
+    </joint>
+
+    <!-- Front steering joints: axis z (in model frame), +-0.5236 rad limit, damped -->
+    <joint name="wheel_front_left_steering_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>wheel_front_left_steering_link</child>
+      <pose relative_to="wheel_front_left_steering_link">0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-0.5236</lower>
+          <upper>0.5236</upper>
+        </limit>
+        <dynamics>
+          <damping>0.5</damping>
+          <friction>0</friction>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+    <joint name="wheel_front_right_steering_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>wheel_front_right_steering_link</child>
+      <pose relative_to="wheel_front_right_steering_link">0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-0.5236</lower>
+          <upper>0.5236</upper>
+        </limit>
+        <dynamics>
+          <damping>0.5</damping>
+          <friction>0</friction>
+        </dynamics>
+        <use_parent_model_frame>1</use_parent_model_frame>
+      </axis>
+    </joint>
+
+    <!-- Front wheel spin joints (child of the steering link, not base_link directly) -->
+    <joint name='wheel_front_left_joint' type='revolute'>
+      <pose relative_to='wheel_front_left_link'/>
+      <parent>wheel_front_left_steering_link</parent>
+      <child>wheel_front_left_link</child>
+      <axis>
+        <xyz expressed_in='__model__'>0 1 0</xyz>
+      </axis>
+    </joint>
+
+    <joint name='wheel_front_right_joint' type='revolute'>
+      <pose relative_to='wheel_front_right_link'/>
+      <parent>wheel_front_right_steering_link</parent>
+      <child>wheel_front_right_link</child>
+      <axis>
+        <xyz expressed_in='__model__'>0 1 0</xyz>
+      </axis>
+    </joint>
+
+    <!-- ================================================================ -->
+    <!-- Plugins                                                           -->
+    <!-- ================================================================ -->
+
+    <!-- 4WD drive plugins — command/motor_speed actuator 0, velocity control -->
+    <!-- verbatim contract: topic, actuator_number, control_type must not change -->
+
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>wheel_rear_left_joint</joint_name>
+      <sub_topic>command/motor_speed</sub_topic>
+      <control_type>velocity</control_type>
+      <use_actuator_msg>true</use_actuator_msg>
+      <actuator_number>0</actuator_number>
+    </plugin>
+
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>wheel_rear_right_joint</joint_name>
+      <sub_topic>command/motor_speed</sub_topic>
+      <control_type>velocity</control_type>
+      <use_actuator_msg>true</use_actuator_msg>
+      <actuator_number>0</actuator_number>
+    </plugin>
+
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>wheel_front_right_joint</joint_name>
+      <sub_topic>command/motor_speed</sub_topic>
+      <control_type>velocity</control_type>
+      <use_actuator_msg>true</use_actuator_msg>
+      <actuator_number>0</actuator_number>
+    </plugin>
+
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>wheel_front_left_joint</joint_name>
+      <sub_topic>command/motor_speed</sub_topic>
+      <control_type>velocity</control_type>
+      <use_actuator_msg>true</use_actuator_msg>
+      <actuator_number>0</actuator_number>
+    </plugin>
+
+    <!--
+      Ackermann steering plugin — steering_only mode, reads servo_0.
+      Computes inner/outer angle split from the single PX4 steering command.
+      Does NOT manage drive joints (steering_only=true).
+      Ref: gz-sim 8 AckermannSteering system docs + ackermann_steering.sdf example.
+    -->
+    <plugin filename="gz-sim-ackermann-steering-system" name="gz::sim::systems::AckermannSteering">
+      <steering_only>true</steering_only>
+      <use_actuator_msg>true</use_actuator_msg>
+      <sub_topic>servo_0</sub_topic>
+      <actuator_number>0</actuator_number>
+      <left_steering_joint>wheel_front_left_steering_joint</left_steering_joint>
+      <right_steering_joint>wheel_front_right_steering_joint</right_steering_joint>
+      <wheel_base>0.312</wheel_base>
+      <wheel_separation>0.266</wheel_separation>
+      <kingpin_width>0.266</kingpin_width>
+      <steering_limit>0.5236</steering_limit>
+    </plugin>
+
+    <!-- Joint state publisher — only joints that exist in this model -->
+    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+      <joint_name>wheel_rear_left_joint</joint_name>
+      <joint_name>wheel_rear_right_joint</joint_name>
+      <joint_name>wheel_front_left_joint</joint_name>
+      <joint_name>wheel_front_right_joint</joint_name>
+      <joint_name>wheel_front_right_steering_joint</joint_name>
+      <joint_name>wheel_front_left_steering_joint</joint_name>
+    </plugin>
+
+  </model>
+</sdf>
