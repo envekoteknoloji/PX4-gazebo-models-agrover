@@ -193,17 +193,17 @@
       </visual>
 
       <!-- RGB camera — matches D435i color sensor optics (69.4 deg H-FOV).
-           gz topic base: camera/color
-           Published gz topics:
-             camera/color/image       (the image itself)
-             camera/color/camera_info -->
+           gz topic base: camera/rgb
+           Published gz topics (a gz `camera` publishes the image on the bare
+           <topic> itself, NOT <topic>/image — verified via gz topic -i):
+             camera/rgb                (the image itself)
+             camera/rgb/camera_info -->
       <sensor name="d435i_color" type="camera">
         <pose relative_to="base_link">0.23 0 0.16 0 0.262 0</pose>
-        <topic>camera/color</topic>
+        <topic>camera/rgb</topic>
         <update_rate>30</update_rate>
         <always_on>1</always_on>
         <camera>
-          <optical_frame_id>d435i_color_optical_frame</optical_frame_id>
           <horizontal_fov>1.2113</horizontal_fov>
           <image>
             <width>640</width>
@@ -237,7 +237,6 @@
         <update_rate>30</update_rate>
         <always_on>1</always_on>
         <camera>
-          <optical_frame_id>d435i_depth_optical_frame</optical_frame_id>
           <horizontal_fov>1.5184</horizontal_fov>
           <image>
             <width>640</width>
@@ -592,20 +591,26 @@
     </plugin>
 
     <!--
-      PosePublisher plugin — publishes all link poses as a gz.msgs.Pose_V so
-      ros_gz_bridge can bridge the model pose to /tf (world → base_link +
-      all link transforms).
+      OdometryPublisher — the canonical "watch the rover drive in RViz" source
+      (ros_gz ROS 2 Interoperability docs + ros_gz_sim_demos vehicle.sdf).
+      Publishes a clean odom -> base_link transform with the frame names set
+      VERBATIM (no model-name scoping) as a gz.msgs.Pose_V on its tf_topic
+      (default /model/<name>/pose), which the bridge maps to ROS /tf.  Combined
+      with robot_state_publisher (base_link -> wheels from joint states), the
+      full tree is  odom -> base_link -> wheels  — set RViz Fixed Frame to `odom`
+      to watch the rover drive.
 
-      Harmonic bug #2690: <publish_model_pose> is broken on Harmonic; use
-      <publish_nested_model_pose> instead for the model-level pose.
-      Ref: https://github.com/gazebosim/gz-sim/issues/2690
+      We deliberately do NOT use PosePublisher: its link poses come out
+      model-scoped (agrover_trx4_0/base_link) and disconnect from the URDF
+      base_link tree.  OdometryPublisher's configured frames avoid that.
 
-      Bridge target: /model/agrover_trx4/pose → gz.msgs.Pose_V → /tf
+      Bridge target: /model/agrover_trx4_0/pose -> gz.msgs.Pose_V -> /tf
     -->
-    <plugin filename="gz-sim-pose-publisher-system" name="gz::sim::systems::PosePublisher">
-      <publish_link_pose>true</publish_link_pose>
-      <use_pose_vector_msg>true</use_pose_vector_msg>
-      <publish_nested_model_pose>true</publish_nested_model_pose>
+    <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+      <odom_frame>odom</odom_frame>
+      <robot_base_frame>base_link</robot_base_frame>
+      <dimensions>3</dimensions>
+      <odom_publish_frequency>30</odom_publish_frequency>
     </plugin>
 
   </model>
