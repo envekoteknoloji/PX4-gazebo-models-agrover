@@ -354,6 +354,7 @@
         <limit>
           <lower>-0.5236</lower>
           <upper>0.5236</upper>
+          <effort>1e6</effort>
         </limit>
         <dynamics>
           <damping>0.5</damping>
@@ -372,6 +373,7 @@
         <limit>
           <lower>-0.5236</lower>
           <upper>0.5236</upper>
+          <effort>1e6</effort>
         </limit>
         <dynamics>
           <damping>0.5</damping>
