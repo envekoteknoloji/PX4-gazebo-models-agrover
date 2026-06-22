@@ -39,6 +39,23 @@
           </box>
         </geometry>
       </visual>
+
+      <!-- Visual-only FRONT indicator (no collision, no density -> no effect on
+           auto-inertia/mass). A red nose bar on the front-top edge so the front
+           of the rover is obvious in sim. Front is +X. -->
+      <visual name='front_marker'>
+        <pose>0.21 0 0.155 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.05 0.14 0.04</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>1 0 0 1</ambient>
+          <diffuse>1 0 0 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
       <collision name='collision'>
         <pose>0 0 0.09 0 0 0</pose>
         <geometry>
@@ -442,22 +459,31 @@
     </plugin>
 
     <!--
-      Ackermann steering plugin — steering_only mode, reads servo_0.
-      Computes inner/outer angle split from the single PX4 steering command.
+      Ackermann steering plugin — steering_only mode, reads PX4's servo_0.
+      PX4's gz_bridge (GZMixingInterfaceServo) publishes the steering angle as a
+      gz.msgs.Double on /model/<name>/servo_0. With steering_only=true +
+      use_actuator_msg=FALSE, the plugin's <sub_topic> redirect subscribes its
+      Double (steer-angle) callback to that topic, then computes the inner/outer
+      geometric split for the two front steering joints.
+      NOTE: use_actuator_msg=true would instead expect a gz.msgs.Actuators message
+      on that topic — a type mismatch that silently drops every command (no steering).
       Does NOT manage drive joints (steering_only=true).
-      Ref: gz-sim 8 AckermannSteering system docs + ackermann_steering.sdf example.
+      Ref: gz-sim 8 AckermannSteering Configure() topic/callback selection.
     -->
     <plugin filename="gz-sim-ackermann-steering-system" name="gz::sim::systems::AckermannSteering">
       <steering_only>true</steering_only>
-      <use_actuator_msg>true</use_actuator_msg>
+      <use_actuator_msg>false</use_actuator_msg>
       <sub_topic>servo_0</sub_topic>
-      <actuator_number>0</actuator_number>
       <left_steering_joint>wheel_front_left_steering_joint</left_steering_joint>
       <right_steering_joint>wheel_front_right_steering_joint</right_steering_joint>
       <wheel_base>0.312</wheel_base>
       <wheel_separation>0.266</wheel_separation>
       <kingpin_width>0.266</kingpin_width>
       <steering_limit>0.5236</steering_limit>
+      <!-- Steering slew speed: the plugin commands steering-joint VELOCITY =
+           steer_p_gain * angle_error. Default 1.0 is sluggish; 2.5 gives a
+           responsive-but-smooth slew to the target angle (tuned by feel). -->
+      <steer_p_gain>2.5</steer_p_gain>
     </plugin>
 
     <!-- Joint state publisher — only joints that exist in this model -->
