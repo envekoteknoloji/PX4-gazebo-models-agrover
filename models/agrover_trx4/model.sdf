@@ -481,9 +481,9 @@
       <kingpin_width>0.266</kingpin_width>
       <steering_limit>0.5236</steering_limit>
       <!-- Steering slew speed: the plugin commands steering-joint VELOCITY =
-           steer_p_gain * angle_error. Default 1.0 is sluggish; 2.5 gives a
-           responsive-but-smooth slew to the target angle (tuned by feel). -->
-      <steer_p_gain>2.5</steer_p_gain>
+           steer_p_gain * angle_error. Default 1.0 is sluggish; 3.5 gives a
+           responsive slew to the target angle (tuned by feel). -->
+      <steer_p_gain>3.5</steer_p_gain>
     </plugin>
 
     <!-- Joint state publisher — only joints that exist in this model -->
