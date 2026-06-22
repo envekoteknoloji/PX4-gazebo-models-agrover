@@ -167,6 +167,101 @@
         <always_on>1</always_on>
         <update_rate>30</update_rate>
       </sensor>
+
+      <!-- ============================================================== -->
+      <!-- RealSense D435i-like RGBD camera — two separate sensors        -->
+      <!-- (not rgbd_camera — avoids gz-sensors #545 frustum-offset bug)  -->
+      <!-- Mount: x=0.23 y=0 z=0.16 in base_link frame, pitch=+0.262 rad -->
+      <!--        (~15 deg nose-down, forward-facing, front-top of body)  -->
+      <!-- ============================================================== -->
+
+      <!-- Visual-only camera body box (no collision, no density ->
+           no effect on auto-inertia / mass). Dark-grey slim bar
+           representing the D435i housing (~25x90x25 mm). -->
+      <visual name='d435i_body'>
+        <pose>0.23 0 0.16 0 0.262 0</pose>
+        <geometry>
+          <box>
+            <size>0.025 0.090 0.025</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.15 0.15 0.15 1</ambient>
+          <diffuse>0.15 0.15 0.15 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
+
+      <!-- RGB camera — matches D435i color sensor optics (69.4 deg H-FOV).
+           gz topic base: camera/color
+           Published gz topics:
+             camera/color/image       (the image itself)
+             camera/color/camera_info -->
+      <sensor name="d435i_color" type="camera">
+        <pose relative_to="base_link">0.23 0 0.16 0 0.262 0</pose>
+        <topic>camera/color</topic>
+        <update_rate>30</update_rate>
+        <always_on>1</always_on>
+        <camera>
+          <optical_frame_id>d435i_color_optical_frame</optical_frame_id>
+          <horizontal_fov>1.2113</horizontal_fov>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>RGB_INT8</format>
+          </image>
+          <clip>
+            <near>0.1</near>
+            <far>20.0</far>
+          </clip>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.007</stddev>
+          </noise>
+        </camera>
+      </sensor>
+
+      <!-- Depth camera — matches D435i depth sensor optics (87 deg H-FOV).
+           USB 2.1 cap: 640x480 @ 30 fps.  Clip: 10.5 cm – 10 m (D435i range).
+           gz topic base: camera/depth
+           FOOTGUN: depth_camera publishes the raw depth image at the BASE topic
+           itself (not <topic>/depth_image), plus /points and /camera_info.
+           Published gz topics:
+             camera/depth             (raw depth image — the base topic itself)
+             camera/depth/points      (PointCloudPacked)
+             camera/depth/camera_info -->
+      <sensor name="d435i_depth" type="depth_camera">
+        <pose relative_to="base_link">0.23 0 0.16 0 0.262 0</pose>
+        <topic>camera/depth</topic>
+        <update_rate>30</update_rate>
+        <always_on>1</always_on>
+        <camera>
+          <optical_frame_id>d435i_depth_optical_frame</optical_frame_id>
+          <horizontal_fov>1.5184</horizontal_fov>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>R_FLOAT32</format>
+          </image>
+          <clip>
+            <near>0.105</near>
+            <far>10.0</far>
+          </clip>
+          <depth_camera>
+            <clip>
+              <near>0.105</near>
+              <far>10.0</far>
+            </clip>
+          </depth_camera>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.01</stddev>
+          </noise>
+        </camera>
+      </sensor>
+
     </link>
 
     <!-- ============================================================== -->
@@ -494,6 +589,23 @@
       <joint_name>wheel_front_right_joint</joint_name>
       <joint_name>wheel_front_right_steering_joint</joint_name>
       <joint_name>wheel_front_left_steering_joint</joint_name>
+    </plugin>
+
+    <!--
+      PosePublisher plugin — publishes all link poses as a gz.msgs.Pose_V so
+      ros_gz_bridge can bridge the model pose to /tf (world → base_link +
+      all link transforms).
+
+      Harmonic bug #2690: <publish_model_pose> is broken on Harmonic; use
+      <publish_nested_model_pose> instead for the model-level pose.
+      Ref: https://github.com/gazebosim/gz-sim/issues/2690
+
+      Bridge target: /model/agrover_trx4/pose → gz.msgs.Pose_V → /tf
+    -->
+    <plugin filename="gz-sim-pose-publisher-system" name="gz::sim::systems::PosePublisher">
+      <publish_link_pose>true</publish_link_pose>
+      <use_pose_vector_msg>true</use_pose_vector_msg>
+      <publish_nested_model_pose>true</publish_nested_model_pose>
     </plugin>
 
   </model>
