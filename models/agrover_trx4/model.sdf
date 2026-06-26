@@ -219,6 +219,7 @@
             <mean>0.0</mean>
             <stddev>0.007</stddev>
           </noise>
+          <optical_frame_id>d435i_color_optical</optical_frame_id>
         </camera>
       </sensor>
 
@@ -258,6 +259,7 @@
             <mean>0.0</mean>
             <stddev>0.01</stddev>
           </noise>
+          <optical_frame_id>d435i_depth_optical</optical_frame_id>
         </camera>
       </sensor>
 
