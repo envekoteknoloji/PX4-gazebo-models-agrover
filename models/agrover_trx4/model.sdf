@@ -342,11 +342,13 @@
     <link name="wheel_front_left_steering_link">
       <pose relative_to="wheel_front_left_link">0 0 0 0 0 0</pose>
       <inertial>
-        <mass>0.005</mass>
+        <!-- Physical knuckle mass — a near-massless link between the steering
+             and wheel joints makes the solver twitchy on the steering axis. -->
+        <mass>0.05</mass>
         <inertia>
-          <ixx>0.0000018</ixx>
-          <iyy>0.0000018</iyy>
-          <izz>0.0000018</izz>
+          <ixx>0.000018</ixx>
+          <iyy>0.000018</iyy>
+          <izz>0.000018</izz>
         </inertia>
       </inertial>
     </link>
@@ -354,11 +356,13 @@
     <link name="wheel_front_right_steering_link">
       <pose relative_to="wheel_front_right_link">0 0 0 0 0 0</pose>
       <inertial>
-        <mass>0.005</mass>
+        <!-- Physical knuckle mass — a near-massless link between the steering
+             and wheel joints makes the solver twitchy on the steering axis. -->
+        <mass>0.05</mass>
         <inertia>
-          <ixx>0.0000018</ixx>
-          <iyy>0.0000018</iyy>
-          <izz>0.0000018</izz>
+          <ixx>0.000018</ixx>
+          <iyy>0.000018</iyy>
+          <izz>0.000018</izz>
         </inertia>
       </inertial>
     </link>
@@ -391,9 +395,12 @@
         <surface>
           <friction>
             <ode>
-              <!-- Moderate friction to reduce lateral scrub during steering -->
-              <mu>0.5</mu>
-              <mu2>1.0</mu2>
+              <!-- Full grip, matching the rears. The old low values (0.5/1.0)
+                   were a workaround for the scrub caused by velocity-driving
+                   the steered fronts; with the fronts free-rolling the tires
+                   should grip like tires. -->
+              <mu>2.0</mu>
+              <mu2>2.0</mu2>
               <fdir1>0 0 1</fdir1>
             </ode>
           </friction>
@@ -425,9 +432,12 @@
         <surface>
           <friction>
             <ode>
-              <!-- Moderate friction to reduce lateral scrub during steering -->
-              <mu>0.5</mu>
-              <mu2>1.0</mu2>
+              <!-- Full grip, matching the rears. The old low values (0.5/1.0)
+                   were a workaround for the scrub caused by velocity-driving
+                   the steered fronts; with the fronts free-rolling the tires
+                   should grip like tires. -->
+              <mu>2.0</mu>
+              <mu2>2.0</mu2>
               <fdir1>0 0 1</fdir1>
             </ode>
           </friction>
@@ -519,8 +529,13 @@
     <!-- Plugins                                                           -->
     <!-- ================================================================ -->
 
-    <!-- 4WD drive plugins — command/motor_speed actuator 0, velocity control -->
+    <!-- Rear-wheel drive plugins — command/motor_speed actuator 0, velocity control -->
     <!-- verbatim contract: topic, actuator_number, control_type must not change -->
+    <!-- The FRONT wheels are deliberately NOT driven: they free-roll on their
+         joints so a steered wheel can follow its turning arc (the standard
+         Ackermann sim pattern). A velocity-locked steered wheel is forced to
+         the straight-line rate and scrubs in every corner — the old 4WD setup
+         was the source of the turning slip. -->
 
     <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
       <joint_name>wheel_rear_left_joint</joint_name>
@@ -532,22 +547,6 @@
 
     <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
       <joint_name>wheel_rear_right_joint</joint_name>
-      <sub_topic>command/motor_speed</sub_topic>
-      <control_type>velocity</control_type>
-      <use_actuator_msg>true</use_actuator_msg>
-      <actuator_number>0</actuator_number>
-    </plugin>
-
-    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
-      <joint_name>wheel_front_right_joint</joint_name>
-      <sub_topic>command/motor_speed</sub_topic>
-      <control_type>velocity</control_type>
-      <use_actuator_msg>true</use_actuator_msg>
-      <actuator_number>0</actuator_number>
-    </plugin>
-
-    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
-      <joint_name>wheel_front_left_joint</joint_name>
       <sub_topic>command/motor_speed</sub_topic>
       <control_type>velocity</control_type>
       <use_actuator_msg>true</use_actuator_msg>
