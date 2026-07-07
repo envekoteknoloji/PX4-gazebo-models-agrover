@@ -12,7 +12,8 @@
                    above link origin so bottom sits at 90 mm ground clearance.
 
       Steering: gz-sim-ackermann-steering-system (steering_only mode, servo_0).
-      Drive:    4WD — JointController on command/motor_speed for all four wheels.
+      Drive:    rear-wheel drive — JointController on command/motor_speed for the
+                two rear wheels; the steered fronts free-roll (turning-scrub fix).
 
       PX4 / GZBridge contract (keep verbatim):
         - link name:    base_link
